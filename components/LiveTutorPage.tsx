@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { LiveServerMessage, Modality, Blob as GenAI_Blob } from '@google/genai';
 import { useLanguage, Source } from '../types';
@@ -67,7 +66,6 @@ const LiveTutorPage: React.FC<LiveTutorPageProps> = ({ handleApiError }) => {
     
     const [connectionState, setConnectionState] = useState<ConnectionState>('idle');
     const [transcription, setTranscription] = useState<TranscriptionPart[]>([]);
-    const [sources, setSources] = useState<Source[]>([]);
     
     const sessionPromiseRef = useRef<Promise<any> | null>(null);
     const mediaStreamRef = useRef<MediaStream | null>(null);
@@ -107,7 +105,6 @@ const LiveTutorPage: React.FC<LiveTutorPageProps> = ({ handleApiError }) => {
     const startConversation = async () => {
         setConnectionState('connecting');
         setTranscription([]);
-        setSources([]);
         nextStartTimeRef.current = 0;
 
         try {
@@ -170,15 +167,6 @@ const LiveTutorPage: React.FC<LiveTutorPageProps> = ({ handleApiError }) => {
                             }
                             return newHistory;
                         });
-
-                        const newSources = (message.serverContent?.modelTurn as any)?.groundingMetadata?.groundingChunks?.map((c: any) => c.web && { uri: c.web.uri, title: c.web.title }).filter(Boolean) as Source[];
-                        if (newSources?.length) {
-                             setSources(prev => {
-                                const existingUris = new Set(prev.map(s => s.uri));
-                                const uniqueNewSources = newSources.filter(s => !existingUris.has(s.uri));
-                                return [...prev, ...uniqueNewSources];
-                             });
-                        }
                         
                         const base64EncodedAudioString = message.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
                         if (base64EncodedAudioString) {
@@ -281,19 +269,6 @@ const LiveTutorPage: React.FC<LiveTutorPageProps> = ({ handleApiError }) => {
                             </div>
                         ))}
                     </div>
-                    
-                    {sources.length > 0 && (
-                        <div className="p-4 border-t border-white/10">
-                            <h3 className="text-xs font-semibold text-gray-400 mb-2 uppercase">Sources</h3>
-                            <div className="flex flex-wrap gap-2">
-                                {sources.map((source, i) => (
-                                    <a href={source.uri} key={i} target="_blank" rel="noopener noreferrer" className="px-2 py-1 bg-gray-700 text-gray-300 text-xs rounded-full hover:bg-gray-600 hover:text-white">
-                                        {source.title}
-                                    </a>
-                                ))}
-                            </div>
-                        </div>
-                    )}
                     
                     <div className="p-6 border-t border-white/10">
                          <button onClick={buttonState.action} disabled={connectionState === 'connecting'} className={`w-full flex items-center justify-center gap-3 py-4 px-6 rounded-lg text-lg font-bold text-white transition-all duration-300 transform hover:scale-105 ${buttonState.className}`}>

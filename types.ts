@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState } from 'react';
 
 // This is a mock implementation for demonstration purposes.
@@ -1013,13 +1014,13 @@ export interface SavedProject {
 }
 
 export interface ProducerProfile {
-  id?: string;
-  name?: string;
-  specialty?: string;
-  city?: string;
-  bio?: string;
-  licenseNumber?: string;
-  relevanceScore?: number;
+  id?: string; // Will be added client-side
+  name: string;
+  specialty: string; // This is the genre
+  city: string;
+  bio: string;
+  licenseNumber?: string; // From static data, not generated
+  relevanceScore: number;
   notes?: string;
 }
 

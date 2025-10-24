@@ -1,5 +1,6 @@
 
 
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useLanguage, MarketTrendsResult, InDepthAnalysis, SWOTAnalysis, QuickSummary, MarketAnalysisMode, Source } from '../types';
 import * as geminiService from '../services/geminiService';
@@ -39,9 +40,7 @@ interface MusicTrendsPageProps {
     handleApiError: (err: unknown) => string;
 }
 
-const parseMarketAnalysis = (jsonResponse: string, mode: MarketAnalysisMode): MarketTrendsResult => {
-    const { text, sources } = JSON.parse(jsonResponse);
-
+const parseMarketAnalysis = (text: string, sources: Source[], mode: MarketAnalysisMode): MarketTrendsResult => {
     const getSectionContent = (header: string): string => {
         const regex = new RegExp(`(?:##|###) ${header}\\n([\\s\\S]*?)(?=\\n##|\\n###|$)`, 'i');
         const match = text.match(regex);
@@ -152,8 +151,8 @@ const MusicTrendsPage: React.FC<MusicTrendsPageProps> = ({ handleApiError }) => 
         setIsPlayingAudio(false);
 
         try {
-            const rawResult = await geminiService.generateMarketAnalysis(searchQuery, language, mode);
-            const parsedResult = parseMarketAnalysis(rawResult, mode);
+            const { text, sources } = await geminiService.generateMarketAnalysis(searchQuery, language, mode);
+            const parsedResult = parseMarketAnalysis(text, sources, mode);
             setResult(parsedResult);
         } catch (err) {
             setError(handleApiError(err));
