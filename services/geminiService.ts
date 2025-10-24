@@ -1,6 +1,6 @@
 
 
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { Language, MarketAnalysisMode, MusicIdeaDetails, ComprehensiveMusicResult, SearchResultItem, ProviderSearchResult, ComprehensiveMusicResult as ProjectResult, SearchQueryClassification, SongIdeaResult } from '../types';
 
 if (!process.env.API_KEY) {
@@ -8,9 +8,9 @@ if (!process.env.API_KEY) {
 }
 
 // FIX: Use GoogleGenAI instead of deprecated GoogleGenerativeAI
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+export const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
 // FIX: Use recommended 'gemini-2.5-flash' model instead of deprecated 'gemini-1.5-flash'
-const model = 'gemini-2.5-flash';
+export const model = 'gemini-2.5-flash';
 
 // FIX: Updated to use the modern `ai.models.generateContent` API
 async function generateContent(prompt: string): Promise<string> {
@@ -340,17 +340,35 @@ export const generateAbcNotation = async (
 ): Promise<string> => {
     const prompt = `
 You are an expert music theory AI assistant specializing in ABC notation.
-The user wants to generate sheet music for the following description: "${description}"
-Your task is to generate the corresponding music in ABC notation format.
+Your task is to generate music in ABC notation format based on a user's description.
+Your response MUST contain ONLY the raw ABC notation text. Do NOT include any explanations, comments, or markdown formatting.
 
-Guidelines for your output:
-1. Start the notation with standard headers like X: (reference number, e.g., 1), T: (title), M: (meter, e.g., 4/4), L: (default note length, e.g., 1/8), Q: (tempo, e.g., 1/4=120), and K: (key, e.g., Cmaj).
-2. The title (T:) should be based on the user's prompt.
+Here is an example:
+User description: "Twinkle Twinkle Little Star in C Major"
+Your output:
+X: 1
+T: Twinkle Twinkle Little Star
+M: 4/4
+L: 1/4
+K: C
+| C C G G | A A G2 |
+| F F E E | D D C2 |
+| G G F F | E E D2 |
+| G G F F | E E D2 |
+| C C G G | A A G2 |
+| F F E E | D D C2 |
+
+---
+
+Now, generate the sheet music for the following user request:
+User description: "${description}"
+
+Your output guidelines:
+1. Start with standard headers: X:, T:, M:, L:, Q:, and K:.
+2. The title (T:) should be based on the user's prompt and in the language "${language}".
 3. The key (K:) should be appropriate for the described mood.
-4. The body of the notation should be a simple melody that fits the description. Make it at least 8 bars long.
-5. Your response MUST contain ONLY the raw ABC notation text. Do NOT include any explanations, comments, or markdown formatting like \`\`\`abc ... \`\`\`.
-
-The language of the Title (T:) field should be in ${language}.
+4. The melody should be at least 8 bars long.
+5. Your response must ONLY be the raw ABC notation text.
 `;
     try {
         const response = await ai.models.generateContent({
@@ -364,4 +382,29 @@ The language of the Title (T:) field should be in ${language}.
         console.error("Error generating ABC notation:", error);
         throw new Error("Failed to get ABC notation from AI model.");
     }
-}
+};
+
+export const generateSpeech = async (text: string): Promise<string> => {
+    try {
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash-preview-tts',
+            contents: [{ parts: [{ text }] }],
+            config: {
+                responseModalities: [Modality.AUDIO],
+                speechConfig: {
+                    voiceConfig: {
+                        prebuiltVoiceConfig: { voiceName: 'Kore' }, // A neutral, clear voice
+                    },
+                },
+            },
+        });
+        const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+        if (!base64Audio) {
+            throw new Error("No audio data received from API.");
+        }
+        return base64Audio;
+    } catch (error) {
+        console.error("Error generating speech:", error);
+        throw new Error("Failed to generate speech from AI model.");
+    }
+};

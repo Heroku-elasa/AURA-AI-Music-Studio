@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import {
   TreatmentPlan,
@@ -221,7 +222,8 @@ const ConsultationDetailModal: React.FC<ConsultationDetailModalProps> = ({ isOpe
                 <h3 className="text-xl font-bold text-white mb-4">{t('consultationModal.costAnalysisTitle')}</h3>
                 {costAnalysis ? (
                      <div className="bg-gray-900/50 p-6 rounded-lg animate-fade-in">
-                        {renderCostTable(costAnalysis.treatmentCosts)}
+                        {/* FIX: Changed property from 'treatmentCosts' to 'productionCosts' to match the type definition. */}
+                        {renderCostTable(costAnalysis.productionCosts)}
                      </div>
                 ) : (
                     <button onClick={handleCalculateCosts} disabled={isCalculatingCosts} className="w-full py-2.5 bg-gray-700 hover:bg-gray-600 rounded-md disabled:opacity-50">
