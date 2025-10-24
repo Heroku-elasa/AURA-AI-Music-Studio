@@ -1,0 +1,9 @@
+{
+  "name": " AURA | AI Music Studio num 2",
+  "description": "Your AI-powered assistant for generating musical ideas, analyzing music trends, finding instruments and studios, and getting production advice.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation",
+    "microphone"
+  ]
+}
