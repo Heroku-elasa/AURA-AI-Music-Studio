@@ -1,9 +1,8 @@
 
-
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { LiveServerMessage, Modality, Blob as GenAI_Blob } from '@google/genai';
 import { useLanguage, Source } from '../types';
-import { generateSpeech, ai } from '../services/geminiService';
+import { ai } from '../services/geminiService';
 
 // Audio helper functions from guidelines
 function encode(bytes: Uint8Array): string {
@@ -79,8 +78,6 @@ const LiveTutorPage: React.FC<LiveTutorPageProps> = ({ handleApiError }) => {
     
     const outputAudioSourcesRef = useRef<Set<AudioBufferSourceNode>>(new Set());
     const nextStartTimeRef = useRef(0);
-    const currentModelTurnText = useRef('');
-
     
     const cleanup = useCallback(() => {
         scriptProcessorRef.current?.disconnect();
@@ -107,45 +104,11 @@ const LiveTutorPage: React.FC<LiveTutorPageProps> = ({ handleApiError }) => {
         sessionPromiseRef.current = null;
     }, []);
 
-    const playQueuedTts = useCallback(async (text: string) => {
-        if (!text.trim()) return;
-
-        try {
-            const audioB64 = await generateSpeech(text);
-            const outputCtx = outputAudioContextRef.current;
-            
-            if (!outputCtx || outputCtx.state === 'closed') {
-                 console.error("Output audio context is not available.");
-                 return;
-            }
-
-            nextStartTimeRef.current = Math.max(nextStartTimeRef.current, outputCtx.currentTime);
-            
-            const audioBuffer = await decodeAudioData(decode(audioB64), outputCtx, 24000, 1);
-            const sourceNode = outputCtx.createBufferSource();
-            sourceNode.buffer = audioBuffer;
-            sourceNode.connect(outputCtx.destination);
-            
-            sourceNode.addEventListener('ended', () => {
-                outputAudioSourcesRef.current.delete(sourceNode);
-            });
-            
-            sourceNode.start(nextStartTimeRef.current);
-            nextStartTimeRef.current += audioBuffer.duration;
-            outputAudioSourcesRef.current.add(sourceNode);
-
-        } catch (err) {
-            handleApiError(err);
-        }
-    }, [handleApiError]);
-
     const startConversation = async () => {
         setConnectionState('connecting');
         setTranscription([]);
         setSources([]);
-        currentModelTurnText.current = '';
         nextStartTimeRef.current = 0;
-
 
         try {
             mediaStreamRef.current = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -217,29 +180,36 @@ const LiveTutorPage: React.FC<LiveTutorPageProps> = ({ handleApiError }) => {
                              });
                         }
                         
-                        if (message.serverContent?.outputTranscription) {
-                            currentModelTurnText.current += message.serverContent.outputTranscription.text;
-                            
-                            let sentenceEndIndex;
-                            while ((sentenceEndIndex = currentModelTurnText.current.search(/[.!?]/)) !== -1) {
-                                const sentence = currentModelTurnText.current.substring(0, sentenceEndIndex + 1);
-                                currentModelTurnText.current = currentModelTurnText.current.substring(sentenceEndIndex + 1);
-                                playQueuedTts(sentence);
+                        const base64EncodedAudioString = message.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
+                        if (base64EncodedAudioString) {
+                            const outputCtx = outputAudioContextRef.current;
+                            if (outputCtx) {
+                                nextStartTimeRef.current = Math.max(
+                                    nextStartTimeRef.current,
+                                    outputCtx.currentTime,
+                                );
+                                const audioBuffer = await decodeAudioData(
+                                    decode(base64EncodedAudioString),
+                                    outputCtx,
+                                    24000,
+                                    1,
+                                );
+                                const sourceNode = outputCtx.createBufferSource();
+                                sourceNode.buffer = audioBuffer;
+                                sourceNode.connect(outputCtx.destination);
+                                sourceNode.addEventListener('ended', () => {
+                                    outputAudioSourcesRef.current.delete(sourceNode);
+                                });
+                                sourceNode.start(nextStartTimeRef.current);
+                                nextStartTimeRef.current += audioBuffer.duration;
+                                outputAudioSourcesRef.current.add(sourceNode);
                             }
-                        }
-                        
-                        if (message.serverContent?.turnComplete) {
-                            if (currentModelTurnText.current.trim()) {
-                                playQueuedTts(currentModelTurnText.current.trim());
-                            }
-                            currentModelTurnText.current = '';
                         }
                         
                         if (message.serverContent?.interrupted) {
                             outputAudioSourcesRef.current.forEach(s => s.stop());
                             outputAudioSourcesRef.current.clear();
                             nextStartTimeRef.current = 0;
-                            currentModelTurnText.current = '';
                         }
                     },
                     onerror: (e: ErrorEvent) => {

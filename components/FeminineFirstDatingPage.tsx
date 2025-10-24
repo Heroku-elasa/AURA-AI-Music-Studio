@@ -1,5 +1,4 @@
 
-
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { marked } from 'marked';
 import MusicIdeaForm from './GeneratorForm';
@@ -127,7 +126,7 @@ const MusicGenerationPage: React.FC<MusicGenerationPageProps> = ({
             const errorMsg = handleApiError(err);
             updateElementState(c => ({ ...c, detailsError: errorMsg, isLoadingDetails: false }));
         }
-    }, [analysisResult, handleApiError, language, ai]);
+    }, [analysisResult, handleApiError, language]);
 
     const handleGetAcademicAnalysis = useCallback(async (elementName: string) => {
         if (!analysisResult) return;
@@ -174,7 +173,7 @@ const MusicGenerationPage: React.FC<MusicGenerationPageProps> = ({
             const errorMsg = handleApiError(err);
             updateElementState(c => ({ ...c, furtherReadingError: errorMsg, isLoadingFurtherReading: false }));
         }
-    }, [analysisResult, handleApiError, language, ai]);
+    }, [analysisResult, handleApiError, language]);
     
     const handleGenerateBrief = async () => {
         if (!analysisResult) return;
