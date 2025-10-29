@@ -476,6 +476,7 @@ export const generateMarketAnalysis = async (query: string, language: Language, 
         .map((chunk: any) => chunk.web ? { uri: chunk.web.uri, title: chunk.web.title || 'Untitled' } : null)
         .filter((s): s is Source => s !== null && !!s.uri);
     
+    // Fix: Explicitly type the Map generic arguments to resolve a TypeScript type inference issue.
     const uniqueSources: Source[] = Array.from(new Map<string, Source>(sources.map(s => [s.uri, s])).values());
     
     return { text, sources: uniqueSources };

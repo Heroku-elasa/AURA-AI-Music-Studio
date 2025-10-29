@@ -1,69 +1,10 @@
 
 
+
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { generateSpecialists } from '../services/geminiService';
+import * as geminiService from '../services/geminiService';
 import { ProducerProfile, SongGenerationResult } from '../types';
 import { useLanguage } from '../types';
-import { PROMPTS } from '../constants';
-
-const parseProducerData = (markdown: string): ProducerProfile[] => {
-    const profiles: ProducerProfile[] = [];
-    const tableRows = markdown.split('\n').map(row => row.trim()).filter(row => row.startsWith('|') && row.endsWith('|'));
-
-    if (tableRows.length < 2 || !tableRows.some(row => row.includes('---'))) {
-        return profiles;
-    }
-    
-    const headers = tableRows[0].split('|').map(h => h.trim().toLowerCase()).slice(1, -1);
-    const headerMap: { [key: string]: number } = {};
-    
-    const keyMap: { [key in keyof ProducerProfile | 'relevanceScore']?: string[] } = {
-        name: ['name', 'نام'], 
-        // FIX: Map both genre and specialty to the same key
-        specialty: ['genre', 'specialty', 'تخصص', 'ژانر'], 
-        city: ['city', 'شهر'], 
-        bio: ['bio', 'بیوگرافی'],
-        relevanceScore: ['relevance', 'ارتباط', 'امتیاز ارتباط']
-    };
-
-    headers.forEach((header, index) => {
-        for (const key in keyMap) {
-            if (keyMap[key as keyof typeof keyMap]?.some(alias => header.includes(alias))) {
-                headerMap[key] = index;
-                break;
-            }
-        }
-    });
-
-    if (headerMap.name === undefined || headerMap.city === undefined) {
-        console.warn("Could not map required headers 'name' and 'city'.", headers);
-        return profiles;
-    }
-
-    const dataRows = tableRows.slice(2);
-    dataRows.forEach(row => {
-        const columns = row.split('|').map(col => col.trim()).slice(1, -1);
-        const name = columns[headerMap.name] ?? '';
-        if (!name) return;
-        
-        const rawScore = headerMap.relevanceScore !== undefined ? columns[headerMap.relevanceScore] : '0';
-        const relevanceScore = parseInt(rawScore.replace('%', '').trim() || '0', 10);
-        
-        // FIX: Create a ProducerProfile object that matches the unified interface.
-        // The error was that this object was missing properties from the merged interface.
-        // Making properties optional in types.ts and aligning genre->specialty here fixes it.
-        profiles.push({
-            id: `${name.replace(/\s/g, '-')}-${columns[headerMap.city] ?? 'unknown'}-${relevanceScore}`,
-            name,
-            specialty: columns[headerMap.specialty] ?? 'N/A',
-            city: columns[headerMap.city] ?? 'N/A',
-            bio: columns[headerMap.bio] ?? 'N/A',
-            relevanceScore: isNaN(relevanceScore) ? 0 : relevanceScore,
-        });
-    });
-    
-    return profiles;
-};
 
 interface ProducerFinderProps {
   savedSpecialists: ProducerProfile[];
@@ -119,19 +60,18 @@ const ProducerFinder: React.FC<ProducerFinderProps> = ({
 
         const elementsText = consultationResult.suggestedSongElements.map(p => p.name).join(', ');
         
-        const prompt = PROMPTS.producerFinder(language)
-            .replace('{elements}', elementsText)
-            .replace('{idea}', idea)
-            .replace('{maxResults}', maxResults.toString());
-
         try {
-            const resultText = await generateSpecialists(prompt);
-            const parsed = parseProducerData(resultText);
+            const producers = await geminiService.generateProducers(elementsText, idea, maxResults, language);
             
-            if (parsed.length > 0) {
-                onSpecialistsFound(parsed);
+            // Add a client-side ID to each producer profile for unique keying
+            const producersWithIds = producers.map(p => ({
+                ...p,
+                id: `${p.name.replace(/\s/g, '-')}-${p.city.replace(/\s/g, '-')}-${p.relevanceScore}`
+            }));
+
+            if (producersWithIds.length > 0) {
+                onSpecialistsFound(producersWithIds);
             } else {
-                setRawTextResult(resultText || "AI returned an empty response.");
                 onSpecialistsFound([]);
             }
         } catch (err) {

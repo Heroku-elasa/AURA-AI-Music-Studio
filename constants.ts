@@ -29,24 +29,6 @@ export const changelogData: ChangelogEntry[] = [
 // This component is not used in the final app, so this data can remain.
 export const TRAINING_PATHS: TrainingPath[] = [ /* ... Omitted for brevity ... */ ];
 
-export const PROMPTS = {
-    producerFinder: (language: Language) => `
-You are an AI assistant for a modern music studio. Your goal is to find relevant music producers based on a user's preliminary AI-driven song analysis.
-The user's potential song elements are:
-{elements}
-
-The user's primary idea is:
-{idea}
-
-Generate a list of {maxResults} hypothetical music producers who would be a good fit to work on this track.
-For each producer, create a plausible name, primary genre (e.g., Hip-Hop, Synthwave, Pop), city, and a short, professional bio highlighting their skills.
-Most importantly, provide a relevance score as a percentage, briefly explaining why they are a relevant choice based on the user's song idea.
-
-The output must be a markdown table with the following columns: Name, Genre, City, Bio, Relevance.
-The table should be in {language}.
-`,
-};
-
 export const MUSICAL_IDEA_PROMPTS: { [key in Language]: string[] } = {
   en: [
     'A sad, melancholic song about rain, with a simple piano melody.',

@@ -1,12 +1,10 @@
 
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-// FIX: Changed ComprehensiveBeautyResult to ComprehensiveMusicResult
 import { ComprehensiveMusicResult, useLanguage, CostAnalysisResult, CostAnalysisItem } from '../types';
 import TreatmentSummary from './DoctorSummarySheet';
 
 interface AnalysisDisplayProps {
-  // FIX: Changed ComprehensiveBeautyResult to ComprehensiveMusicResult
   analysis: ComprehensiveMusicResult | null;
   isLoading: boolean;
   error: string | null;
@@ -24,7 +22,6 @@ interface AnalysisDisplayProps {
   costsError: string | null;
 }
 
-// FIX: Rewrote the entire component to display music-themed analysis data
 const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ 
   analysis, 
   isLoading, 
@@ -50,6 +47,7 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({
   const [summaryStyle, setSummaryStyle] = useState<'dark' | 'light'>('dark');
 
   const productionConsultation = analysis?.productionConsultation;
+  const songStructure = productionConsultation?.songStructure;
 
   const handleElementToggle = (elementName: string) => {
     const isCurrentlyExpanded = expandedElement === elementName;
@@ -246,12 +244,28 @@ const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({
 
                 <div className="pt-8 border-t border-white/10">
                     <h3 className="text-xl font-bold text-white mb-6 text-center">{t('analysisDisplay.treatmentSectionTitle')}</h3>
-                    <div className="mb-8">
-                        <h4 className="text-lg font-semibold text-gray-200 mb-3">{t('analysisDisplay.lifestyleTitle')}</h4>
-                        <blockquote className="p-4 bg-gray-900/50 border-l-4 border-rose-400 text-gray-300">
-                            {productionConsultation.arrangementAdvice}
-                        </blockquote>
-                    </div>
+                     {songStructure && (
+                        <div className="mb-8">
+                            <h4 className="text-lg font-semibold text-gray-200 mb-3">{t('analysisDisplay.songStructureTitle')}</h4>
+                            <div className="bg-gray-900/50 p-6 rounded-lg border border-white/10">
+                                <h5 className="font-bold text-rose-300 text-lg">{songStructure.name}</h5>
+                                <p className="text-sm text-gray-400 mt-1 mb-4">{songStructure.description}</p>
+                                <div className="space-y-3 border-t border-white/10 pt-4">
+                                    {songStructure.sections.map((section, index) => (
+                                        <div key={index} className="flex items-start">
+                                            <div className="bg-gray-700 text-white font-bold text-xs rounded-full h-6 w-6 flex items-center justify-center flex-shrink-0 mr-3 mt-1 rtl:ml-3 rtl:mr-0">
+                                                {index + 1}
+                                            </div>
+                                            <div>
+                                                <p className="font-semibold text-white">{section.part}</p>
+                                                <p className="text-sm text-gray-400">{section.description}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
                     <div>
                         <h4 className="text-lg font-semibold text-gray-200 mb-4">{t('analysisDisplay.treatmentSuggestionsTitle')}</h4>
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
