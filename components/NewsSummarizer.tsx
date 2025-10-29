@@ -1,46 +1,16 @@
 
 
-
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useLanguage, MarketTrendsResult, InDepthAnalysis, SWOTAnalysis, QuickSummary, MarketAnalysisMode, Source } from '../types';
 import * as geminiService from '../services/geminiService';
-
-// Audio helper functions
-function decode(base64: string) {
-  const binaryString = atob(base64);
-  const len = binaryString.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
-  }
-  return bytes;
-}
-
-async function decodeAudioData(
-  data: Uint8Array,
-  ctx: AudioContext,
-  sampleRate: number,
-  numChannels: number,
-): Promise<AudioBuffer> {
-  const dataInt16 = new Int16Array(data.buffer);
-  const frameCount = dataInt16.length / numChannels;
-  const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
-
-  for (let channel = 0; channel < numChannels; channel++) {
-    const channelData = buffer.getChannelData(channel);
-    for (let i = 0; i < frameCount; i++) {
-      channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
-    }
-  }
-  return buffer;
-}
-
 
 interface MusicTrendsPageProps {
     handleApiError: (err: unknown) => string;
 }
 
-const parseMarketAnalysis = (text: string, sources: Source[], mode: MarketAnalysisMode): MarketTrendsResult => {
+const parseMarketAnalysis = (jsonResponse: string, mode: MarketAnalysisMode): MarketTrendsResult => {
+    const { text, sources } = JSON.parse(jsonResponse);
+
     const getSectionContent = (header: string): string => {
         const regex = new RegExp(`(?:##|###) ${header}\\n([\\s\\S]*?)(?=\\n##|\\n###|$)`, 'i');
         const match = text.match(regex);
@@ -115,13 +85,6 @@ const MusicTrendsPage: React.FC<MusicTrendsPageProps> = ({ handleApiError }) => 
     const [mode, setMode] = useState<MarketAnalysisMode>('quick');
     const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
 
-    // TTS State
-    const [isGeneratingAudio, setIsGeneratingAudio] = useState(false);
-    const [isPlayingAudio, setIsPlayingAudio] = useState(false);
-    const audioContextRef = useRef<AudioContext | null>(null);
-    const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
-
-
     const loadingMessages = useMemo(() => [
         t('musicTrends.loading.scanning'),
         t('musicTrends.loading.synthesizing'),
@@ -145,81 +108,14 @@ const MusicTrendsPage: React.FC<MusicTrendsPageProps> = ({ handleApiError }) => 
         setIsLoading(true);
         setError(null);
         setResult(null);
-        if (audioSourceRef.current) {
-            audioSourceRef.current.stop();
-        }
-        setIsPlayingAudio(false);
-
         try {
-            const { text, sources } = await geminiService.generateMarketAnalysis(searchQuery, language, mode);
-            const parsedResult = parseMarketAnalysis(text, sources, mode);
+            const rawResult = await geminiService.generateMarketAnalysis(searchQuery, language, mode);
+            const parsedResult = parseMarketAnalysis(rawResult, mode);
             setResult(parsedResult);
         } catch (err) {
             setError(handleApiError(err));
         } finally {
             setIsLoading(false);
-        }
-    };
-    
-    const getResultText = (analysisResult: MarketTrendsResult | null): string => {
-        if (!analysisResult) return '';
-        switch(analysisResult.type) {
-            case 'quick': return analysisResult.summary;
-            case 'in-depth': return [
-                `**${t('musicTrends.results.keyInsights')}**\n${analysisResult.keyInsights.join('\n- ')}`,
-                `**${t('musicTrends.results.detailedSummary')}**\n${analysisResult.detailedSummary}`,
-                `**${t('musicTrends.results.emergingTrends')}**\n${analysisResult.emergingTrends.map(t => `${t.name}: ${t.description}`).join('\n')}`,
-                `**${t('musicTrends.results.opportunities')}**\n${analysisResult.opportunities.join('\n- ')}`,
-                `**${t('musicTrends.results.risks')}**\n${analysisResult.risks.join('\n- ')}`,
-            ].join('\n\n');
-            case 'swot': return [
-                `**${t('musicTrends.results.strengths')}**\n${analysisResult.strengths.join('\n- ')}`,
-                `**${t('musicTrends.results.weaknesses')}**\n${analysisResult.weaknesses.join('\n- ')}`,
-                `**${t('musicTrends.results.opportunities')}**\n${analysisResult.opportunities.join('\n- ')}`,
-                `**${t('musicTrends.results.threats')}**\n${analysisResult.threats.join('\n- ')}`,
-            ].join('\n\n');
-            default: return '';
-        }
-    }
-
-    const handlePlayAudio = async () => {
-        if (isPlayingAudio) {
-            if (audioSourceRef.current) {
-                audioSourceRef.current.stop();
-            }
-            setIsPlayingAudio(false);
-            return;
-        }
-
-        const textToSpeak = getResultText(result);
-        if (!textToSpeak) return;
-
-        setIsGeneratingAudio(true);
-        try {
-            const audioB64 = await geminiService.generateSpeech(textToSpeak);
-            
-            if (!audioContextRef.current || audioContextRef.current.state === 'closed') {
-                audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-            }
-            
-            const audioCtx = audioContextRef.current;
-            const audioBuffer = await decodeAudioData(decode(audioB64), audioCtx, 24000, 1);
-            
-            const source = audioCtx.createBufferSource();
-            source.buffer = audioBuffer;
-            source.connect(audioCtx.destination);
-            source.onended = () => {
-                setIsPlayingAudio(false);
-                audioSourceRef.current = null;
-            };
-            source.start();
-            audioSourceRef.current = source;
-            setIsPlayingAudio(true);
-
-        } catch (err) {
-            handleApiError(err);
-        } finally {
-            setIsGeneratingAudio(false);
         }
     };
 
@@ -406,17 +302,6 @@ const MusicTrendsPage: React.FC<MusicTrendsPageProps> = ({ handleApiError }) => 
                     )}
                     {result && (
                         <div className="animate-fade-in bg-gray-800/30 p-6 sm:p-8 rounded-lg mt-8 border border-white/10 space-y-10 relative overflow-hidden">
-                             <div className="absolute top-4 right-4 z-10">
-                                <button onClick={handlePlayAudio} disabled={isGeneratingAudio} className="p-2 rounded-full bg-gray-700/50 text-gray-300 hover:bg-gray-600 hover:text-white transition-colors disabled:opacity-50" aria-label="Read analysis aloud">
-                                    {isGeneratingAudio ? (
-                                        <svg className="w-5 h-5 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                                    ) : isPlayingAudio ? (
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1zm4 0a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
-                                    ) : (
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" /></svg>
-                                    )}
-                                </button>
-                            </div>
                             <DecorativeGraph />
                             {result.type === 'quick' && 
                                 <div className="prose prose-invert prose-sm max-w-none text-gray-300" dangerouslySetInnerHTML={{ __html: (result as QuickSummary).summary.replace(/\n/g, '<br />') }} />

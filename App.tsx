@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import SiteHeader from './components/Header';
 import HomePage from './components/Hero';
@@ -7,17 +8,17 @@ import SiteFooter from './components/Footer';
 import QuotaErrorModal from './components/QuotaErrorModal';
 import ChangelogModal from './components/GoogleBabaModal';
 import LoginModal from './components/LoginModal';
-import LiveTutorPage from './components/LiveTutorPage';
+import AIMusicTutorPage from './components/BaristaCoach';
 import MusicTrendsPage from './components/NewsSummarizer';
 import OurProducersPage from './components/StartupShowcase';
 import CollaborationLabelPage from './components/InvestmentPage';
-import InstrumentFinderPage from './components/InstrumentFinderPage';
+import InstrumentFinderPage from './components/CafeFinderPage';
 import MusicGenerationPage from './components/FeminineFirstDatingPage';
 import StudioSetupPage from './components/FranchisePage';
 import MusicSheetGeneratorPage from './components/MusicSheetGeneratorPage';
 import SongIdeaGeneratorPage from './components/SongIdeaGeneratorPage';
 import SearchModal from './components/SearchModal';
-import { Page, SavedProject, ProviderSearchResult, SearchResultItem, useLanguage } from './types';
+import { Page, SavedProject, ProviderSearchResult, Message, SearchResultItem, useLanguage } from './types';
 import { useToast } from './components/Toast';
 import { initDB, saveConsultation as saveDb, getAllSavedConsultations, deleteConsultation as deleteDb } from './services/dbService';
 import { performSemanticSearch, findLocalProviders, classifySearchQuery } from './services/geminiService';
@@ -34,6 +35,10 @@ const App: React.FC = () => {
   const [savedProjects, setSavedProjects] = useState<SavedProject[]>([]);
   const [projectToRestore, setProjectToRestore] = useState<SavedProject | null>(null);
 
+  // AI Tutor State
+  const [chatHistory, setChatHistory] = useState<Message[]>([{ role: 'model', parts: [{ text: "Hello! I'm your AI Music Tutor. Ask me anything about music theory, production, or songwriting!" }] }]);
+  const [isStreaming, setIsStreaming] = useState(false);
+  
   // Instrument Finder State
   const [providerResults, setProviderResults] = useState<ProviderSearchResult[] | null>(null);
   const [isFindingProviders, setIsFindingProviders] = useState(false);
@@ -117,6 +122,17 @@ const App: React.FC = () => {
           setPage('music_generation');
           addToast(`Restored "${project.name}".`, 'info');
       }
+  };
+
+  const handleAiSendMessage = (message: string) => {
+      const userMessage: Message = { role: 'user', parts: [{ text: message }] };
+      setChatHistory(prev => [...prev, userMessage]);
+      setIsStreaming(true);
+      setTimeout(() => {
+          const aiResponse: Message = { role: 'model', parts: [{ text: "This is a simulated AI response. The full AI logic is not implemented in this demo." }] };
+          setChatHistory(prev => [...prev, aiResponse]);
+          setIsStreaming(false);
+      }, 1500);
   };
   
   const handleProviderSearch = async (
@@ -228,8 +244,10 @@ const App: React.FC = () => {
             isQuotaExhausted={isQuotaExhausted}
         />;
       case 'ai_tutor':
-        return <LiveTutorPage 
-            handleApiError={handleApiError}
+        return <AIMusicTutorPage 
+            chatHistory={chatHistory} 
+            isStreaming={isStreaming} 
+            onSendMessage={handleAiSendMessage}
         />;
       case 'music_trends':
         return <MusicTrendsPage handleApiError={handleApiError} />;

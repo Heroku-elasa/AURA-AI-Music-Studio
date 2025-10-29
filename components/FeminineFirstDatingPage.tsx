@@ -1,4 +1,5 @@
 
+
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { marked } from 'marked';
 import MusicIdeaForm from './GeneratorForm';
@@ -15,7 +16,9 @@ import {
     SavedProject,
     CostAnalysisResult,
 } from '../types';
-import { generateComprehensiveMusicAnalysis, calculateProductionCosts, ai, model } from '../services/geminiService';
+import { generateComprehensiveMusicAnalysis, calculateProductionCosts } from '../services/geminiService';
+// FIX: Use GoogleGenAI instead of deprecated GoogleGenerativeAI
+import { GoogleGenAI } from '@google/genai';
 
 
 interface MusicGenerationPageProps {
@@ -34,6 +37,10 @@ const MusicGenerationPage: React.FC<MusicGenerationPageProps> = ({
     setProjectToRestore
 }) => {
     const { language, t } = useLanguage();
+    // FIX: Use GoogleGenAI instead of deprecated GoogleGenerativeAI
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
+    // FIX: Use recommended 'gemini-2.5-flash' model
+    const model = 'gemini-2.5-flash';
 
     // Form State
     const [idea, setIdea] = useState('');
@@ -119,6 +126,7 @@ const MusicGenerationPage: React.FC<MusicGenerationPageProps> = ({
         const prompt = `Provide a more detailed, easy-to-understand explanation for the musical concept "${elementName}" for a musician. Include its purpose, common usage, and examples. Format the response as a simple markdown string. The language must be ${language}.`;
         
         try {
+            // FIX: Use modern `ai.models.generateContent` API
             const response = await ai.models.generateContent({ model, contents: prompt });
             const htmlDetails = await marked.parse(response.text);
             updateElementState(c => ({ ...c, details: htmlDetails, isLoadingDetails: false }));
@@ -126,7 +134,7 @@ const MusicGenerationPage: React.FC<MusicGenerationPageProps> = ({
             const errorMsg = handleApiError(err);
             updateElementState(c => ({ ...c, detailsError: errorMsg, isLoadingDetails: false }));
         }
-    }, [analysisResult, handleApiError, language]);
+    }, [analysisResult, handleApiError, language, model, ai.models]);
 
     const handleGetAcademicAnalysis = useCallback(async (elementName: string) => {
         if (!analysisResult) return;
@@ -151,6 +159,7 @@ const MusicGenerationPage: React.FC<MusicGenerationPageProps> = ({
         const prompt = `Provide a concise, academic-style summary for the music theory concept "${elementName}", mentioning its historical context and theoretical underpinnings. Use Google Search to find sources. Format as markdown, including a list of source links at the end. The language must be ${language}.`;
         
         try {
+            // FIX: Use modern `ai.models.generateContent` API
             const response = await ai.models.generateContent({
                 model,
                 contents: prompt,
@@ -173,7 +182,7 @@ const MusicGenerationPage: React.FC<MusicGenerationPageProps> = ({
             const errorMsg = handleApiError(err);
             updateElementState(c => ({ ...c, furtherReadingError: errorMsg, isLoadingFurtherReading: false }));
         }
-    }, [analysisResult, handleApiError, language]);
+    }, [analysisResult, handleApiError, language, model, ai.models]);
     
     const handleGenerateBrief = async () => {
         if (!analysisResult) return;
@@ -188,6 +197,7 @@ const MusicGenerationPage: React.FC<MusicGenerationPageProps> = ({
         `;
         
         try {
+            // FIX: Use modern `ai.models.generateContent` API
             const response = await ai.models.generateContent({ model, contents: prompt });
             setProductionBrief(response.text);
         } catch(err) {

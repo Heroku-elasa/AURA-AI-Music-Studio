@@ -1,14 +1,30 @@
-import { GoogleGenAI, Type, Modality } from "@google/genai";
-import { Language, MarketAnalysisMode, MusicIdeaDetails, ComprehensiveMusicResult, SearchResultItem, ProviderSearchResult, ComprehensiveMusicResult as ProjectResult, SearchQueryClassification, SongIdeaResult, ProducerProfile, Source } from '../types.ts';
 
-if (!(process as any).env.API_KEY) {
+
+import { GoogleGenAI, Type } from "@google/genai";
+import { Language, MarketAnalysisMode, MusicIdeaDetails, ComprehensiveMusicResult, SearchResultItem, ProviderSearchResult, ComprehensiveMusicResult as ProjectResult, SearchQueryClassification, SongIdeaResult } from '../types';
+
+if (!process.env.API_KEY) {
     console.warn("API_KEY is not set. AI features will not work.");
 }
 
 // FIX: Use GoogleGenAI instead of deprecated GoogleGenerativeAI
-export const ai = new GoogleGenAI({ apiKey: (process as any).env.API_KEY! });
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY! });
 // FIX: Use recommended 'gemini-2.5-flash' model instead of deprecated 'gemini-1.5-flash'
-export const model = 'gemini-2.5-flash';
+const model = 'gemini-2.5-flash';
+
+// FIX: Updated to use the modern `ai.models.generateContent` API
+async function generateContent(prompt: string): Promise<string> {
+    try {
+        const response = await ai.models.generateContent({
+            model,
+            contents: prompt,
+        });
+        return response.text;
+    } catch (error) {
+        console.error("Error generating content:", error);
+        throw new Error("Failed to get response from AI model.");
+    }
+}
 
 export const generateComprehensiveMusicAnalysis = async (
     idea: string, 
@@ -72,7 +88,7 @@ export const generateComprehensiveMusicAnalysis = async (
         config: { responseMimeType: "application/json" }
     });
     
-    return JSON.parse(response.text || '{}');
+    return JSON.parse(response.text);
 };
 
 export const generateSongIdea = async (
@@ -104,55 +120,16 @@ export const generateSongIdea = async (
         config: { responseMimeType: "application/json" }
     });
     
-    return JSON.parse(response.text || '{}');
+    return JSON.parse(response.text);
 };
 
-export const generateProducers = async (
-    elements: string,
-    idea: string,
-    maxResults: number,
-    language: Language
-): Promise<Omit<ProducerProfile, 'id'>[]> => {
-    const prompt = `
-You are an AI assistant for a modern music studio. Your goal is to find relevant music producers based on a user's preliminary AI-driven song analysis.
-The user's potential song elements are: ${elements}
-The user's primary idea is: ${idea}
 
-Generate a list of ${maxResults} hypothetical music producers who would be a good fit to work on this track.
-For each producer, create a plausible name, primary genre (specialty), city, and a short, professional bio.
-Also provide a relevance score as a number between 0 and 100.
-The response for user-facing fields (name, specialty, city, bio) must be in ${language}.
-`;
-
-    const schema = {
-        type: Type.ARRAY,
-        items: {
-            type: Type.OBJECT,
-            properties: {
-                name: { type: Type.STRING },
-                specialty: { type: Type.STRING, description: "The producer's primary music genre." },
-                city: { type: Type.STRING },
-                bio: { type: Type.STRING, description: "A short, professional biography." },
-                relevanceScore: { type: Type.INTEGER, description: "A score from 0 to 100 indicating relevance." },
-            },
-            required: ["name", "specialty", "city", "bio", "relevanceScore"],
-        },
-    };
-
-    const response = await ai.models.generateContent({
-        model,
-        contents: prompt,
-        config: {
-            responseMimeType: "application/json",
-            responseSchema: schema,
-        },
-    });
-
-    return JSON.parse(response.text || '[]');
+export const generateSpecialists = (prompt: string): Promise<string> => {
+    return generateContent(prompt);
 };
 
-export const generateMarketAnalysis = async (query: string, language: Language, mode: MarketAnalysisMode): Promise<{ text: string, sources: Source[] }> => {
-    let prompt = `Analyze the music market for "${query}". The response must be a markdown-formatted text in ${language}.`;
+export const generateMarketAnalysis = async (query: string, language: Language, mode: MarketAnalysisMode): Promise<string> => {
+    let prompt = `Analyze the music market for "${query}". The response must be in ${language}.`;
 
     switch (mode) {
         case 'in-depth':
@@ -162,12 +139,11 @@ export const generateMarketAnalysis = async (query: string, language: Language, 
             prompt += ` Provide a SWOT analysis (Strengths, Weaknesses, Opportunities, Threats).`;
             break;
         case 'quick':
-        default:
             prompt += ` Provide a quick, concise summary.`;
             break;
     }
     
-    prompt += ` Use Google Search to get up-to-date information. Also suggest some related queries or topics for further exploration at the end.`;
+    prompt += ` Use Google Search to get up-to-date information. The entire response must be a single JSON object with two keys: "text" (a markdown string with the analysis) and "sources" (an array of source objects, each with "uri" and "title").`;
 
     const response = await ai.models.generateContent({
         model,
@@ -177,15 +153,13 @@ export const generateMarketAnalysis = async (query: string, language: Language, 
         }
     });
 
-    const text = response.text || '';
-    const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks
-        ?.map(chunk => chunk.web ? { uri: chunk.web.uri, title: chunk.web.title || 'Untitled' } : null)
-        .filter((s): s is Source => s !== null && !!s.uri) || [];
+    const text = response.text;
+    const sources = response.candidates?.[0]?.groundingMetadata?.groundingChunks?.map(chunk => ({
+        uri: chunk.web?.uri || '',
+        title: chunk.web?.title || 'Untitled',
+    })) || [];
     
-    // De-duplicate sources
-    const uniqueSources = Array.from(new Map(sources.map(s => [s.uri, s])).values());
-    
-    return { text, sources: uniqueSources };
+    return JSON.stringify({ text, sources });
 };
 
 export const classifySearchQuery = async (query: string, language: Language): Promise<SearchQueryClassification> => {
@@ -227,7 +201,7 @@ export const classifySearchQuery = async (query: string, language: Language): Pr
         },
     });
 
-    return JSON.parse(response.text || '{}');
+    return JSON.parse(response.text);
 };
 
 
@@ -272,7 +246,7 @@ export const performSemanticSearch = async (query: string, searchIndex: string, 
         },
     });
 
-    return JSON.parse(response.text || '[]');
+    return JSON.parse(response.text);
 };
 
 export const findLocalProviders = async (
@@ -339,7 +313,7 @@ export const findLocalProviders = async (
         },
     });
     
-    const results = JSON.parse(response.text || '[]');
+    const results = JSON.parse(response.text);
     return results.map((item: any) => ({
         ...item,
         services: item.services || [],
@@ -357,7 +331,7 @@ export const calculateProductionCosts = async (project: ProjectResult, idea: str
         config: { responseMimeType: "application/json" }
     });
 
-    return JSON.parse(response.text || '{}');
+    return JSON.parse(response.text);
 };
 
 export const generateAbcNotation = async (
@@ -366,35 +340,17 @@ export const generateAbcNotation = async (
 ): Promise<string> => {
     const prompt = `
 You are an expert music theory AI assistant specializing in ABC notation.
-Your task is to generate music in ABC notation format based on a user's description.
-Your response MUST contain ONLY the raw ABC notation text. Do NOT include any explanations, comments, or markdown formatting.
+The user wants to generate sheet music for the following description: "${description}"
+Your task is to generate the corresponding music in ABC notation format.
 
-Here is an example:
-User description: "Twinkle Twinkle Little Star in C Major"
-Your output:
-X: 1
-T: Twinkle Twinkle Little Star
-M: 4/4
-L: 1/4
-K: C
-| C C G G | A A G2 |
-| F F E E | D D C2 |
-| G G F F | E E D2 |
-| G G F F | E E D2 |
-| C C G G | A A G2 |
-| F F E E | D D C2 |
-
----
-
-Now, generate the sheet music for the following user request:
-User description: "${description}"
-
-Your output guidelines:
-1. Start with standard headers: X:, T:, M:, L:, Q:, and K:.
-2. The title (T:) should be based on the user's prompt and in the language "${language}".
+Guidelines for your output:
+1. Start the notation with standard headers like X: (reference number, e.g., 1), T: (title), M: (meter, e.g., 4/4), L: (default note length, e.g., 1/8), Q: (tempo, e.g., 1/4=120), and K: (key, e.g., Cmaj).
+2. The title (T:) should be based on the user's prompt.
 3. The key (K:) should be appropriate for the described mood.
-4. The melody should be at least 8 bars long.
-5. Your response must ONLY be the raw ABC notation text.
+4. The body of the notation should be a simple melody that fits the description. Make it at least 8 bars long.
+5. Your response MUST contain ONLY the raw ABC notation text. Do NOT include any explanations, comments, or markdown formatting like \`\`\`abc ... \`\`\`.
+
+The language of the Title (T:) field should be in ${language}.
 `;
     try {
         const response = await ai.models.generateContent({
@@ -403,34 +359,9 @@ Your output guidelines:
         });
         // Clean the response to ensure it's valid ABC notation
         // Remove markdown backticks if they still appear
-        return (response.text || '').replace(/`{1,3}(abc)?/g, '').trim();
+        return response.text.replace(/```(abc)?/g, '').trim();
     } catch (error) {
         console.error("Error generating ABC notation:", error);
         throw new Error("Failed to get ABC notation from AI model.");
     }
-};
-
-export const generateSpeech = async (text: string): Promise<string> => {
-    try {
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash-preview-tts',
-            contents: [{ parts: [{ text }] }],
-            config: {
-                responseModalities: [Modality.AUDIO],
-                speechConfig: {
-                    voiceConfig: {
-                        prebuiltVoiceConfig: { voiceName: 'Kore' }, // A neutral, clear voice
-                    },
-                },
-            },
-        });
-        const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-        if (!base64Audio) {
-            throw new Error("No audio data received from API.");
-        }
-        return base64Audio;
-    } catch (error) {
-        console.error("Error generating speech:", error);
-        throw new Error("Failed to generate speech from AI model.");
-    }
-};
+}
