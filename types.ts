@@ -743,7 +743,7 @@ const translations: Record<string, any> = {
         }
     },
     ar: {
-        header: { home: "الرئيسية", musicGeneration: "تحليل شامل بالذكاء الاصطناعي", songIdeaGenerator: "مولد أفكار الأغاني بالذكاء الاصطناعي", musicSheetGenerator: "النوتة الموسيقية بالذكاء الاصطناعي", instrumentFinder: " مكتشف الآلات", aiTutor: "مدرس الذكاء الاصطناعي", musicTrends: "اتجاهات الموسيقى", ourProducers: "منتجونا", collaboration: "تعاون", myProjects: "مشاريعي", login: "تسجيل الدخول / اشتراك", logout: "تسجيل الخروج" },
+        header: { home: "الرئيسية", musicGeneration: "تحلیل شامل بالذكاء الاصطناعي", songIdeaGenerator: "مولد أفكار الأغاني بالذكاء الاصطناعي", musicSheetGenerator: "النوتة الموسيقية بالذكاء الاصطناعي", instrumentFinder: " مكتشف الآلات", aiTutor: "مدرس الذكاء الاصطناعي", musicTrends: "اتجاهات الموسيقى", ourProducers: "منتجونا", collaboration: "تعاون", myProjects: "مشاريعي", login: "تسجيل الدخول / اشتراك", logout: "تسجيل الخروج" },
         hero: { 
             title: "استوديو الموسيقى الخاص بك المدعوم بالذكاء الاصطناعي",
             subtitle: "أنشئ الألحان، واحصل على نصائح إنتاج مخصصة، وابحث عن متاجر واستوديوهات الموسيقى المحلية - كل ذلك بمساعدة الذكاء الاصطناعي المتقدم.",

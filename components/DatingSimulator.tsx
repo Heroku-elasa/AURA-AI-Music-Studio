@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { ConversationCoachState, Goal, Message, useLanguage, TrainingPath, TrainingScenario, Difficulty } from '../types';
 import { TRAINING_PATHS } from '../constants';
@@ -161,7 +160,6 @@ const ConversationCoach: React.FC<ConversationCoachProps> = ({
                 
                 {/* Scores */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
-                    {/* FIX: Cast value to number to fix typing errors */}
                     {Object.entries(state.currentAnalysis.scores).filter(([_, value]) => (value as number) > 0).map(([key, value]) => (
                         <div key={key} className="bg-gray-800 p-4 rounded-lg">
                             <div className="text-3xl font-bold text-rose-400">{value as number}</div>
